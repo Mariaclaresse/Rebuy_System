@@ -10,6 +10,16 @@ if (!isset($_SESSION['user_id'])) {
 $user_id = $_SESSION['user_id'];
 $selected_user_id = isset($_GET['user_id']) ? intval($_GET['user_id']) : 0;
 
+// Update current user's last_seen timestamp
+$conn->query("UPDATE users SET last_seen = NOW() WHERE id = $user_id");
+
+// Handle heartbeat request to update last_seen via AJAX
+if (isset($_POST['action']) && $_POST['action'] == 'heartbeat') {
+    $conn->query("UPDATE users SET last_seen = NOW() WHERE id = $user_id");
+    echo json_encode(['success' => true]);
+    exit();
+}
+
 // Check if messages table exists
 $table_check = $conn->query("SHOW TABLES LIKE 'messages'");
 $table_exists = ($table_check && $table_check->num_rows > 0);
@@ -103,42 +113,52 @@ if ($selected_user_id > 0 && $table_exists) {
 // Get all conversations (unique users the current user has messaged with)
 $conversations = null;
 if ($table_exists) {
+    // Check if is_seller column exists
+    $seller_check = $conn->query("SHOW COLUMNS FROM users LIKE 'is_seller'");
+    $has_seller_column = ($seller_check && $seller_check->num_rows > 0);
+
+    // Check if last_seen column exists
+    $last_seen_check = $conn->query("SHOW COLUMNS FROM users LIKE 'last_seen'");
+    $has_last_seen = ($last_seen_check && $last_seen_check->num_rows > 0);
+
     $conversations_query = "
-        SELECT DISTINCT 
-            CASE 
-                WHEN sender_id = ? THEN receiver_id 
-                ELSE sender_id 
+        SELECT DISTINCT
+            CASE
+                WHEN sender_id = ? THEN receiver_id
+                ELSE sender_id
             END as other_user_id,
             u.username,
             u.first_name,
             u.last_name,
-            u.profile_pic,
+            u.profile_pic"
+            . ($has_seller_column ? ", u.is_seller" : "")
+            . ($has_last_seen ? ", u.last_seen" : "") . ",
             (
-                SELECT message 
-                FROM messages 
-                WHERE (sender_id = ? AND receiver_id = other_user_id) 
-                   OR (sender_id = other_user_id AND receiver_id = ?) 
-                ORDER BY created_at DESC 
+                SELECT message
+                FROM messages
+                WHERE (sender_id = ? AND receiver_id = other_user_id)
+                   OR (sender_id = other_user_id AND receiver_id = ?)
+                ORDER BY created_at DESC
                 LIMIT 1
             ) as last_message,
             (
-                SELECT created_at 
-                FROM messages 
-                WHERE (sender_id = ? AND receiver_id = other_user_id) 
-                   OR (sender_id = other_user_id AND receiver_id = ?) 
-                ORDER BY created_at DESC 
+                SELECT created_at
+                FROM messages
+                WHERE (sender_id = ? AND receiver_id = other_user_id)
+                   OR (sender_id = other_user_id AND receiver_id = ?)
+                ORDER BY created_at DESC
                 LIMIT 1
             ) as last_message_time,
             (
-                SELECT COUNT(*) 
-                FROM messages 
+                SELECT COUNT(*)
+                FROM messages
                 WHERE sender_id = other_user_id AND receiver_id = ? AND is_read = 0
             ) as unread_count
         FROM messages
         JOIN users u ON (
-            CASE 
-                WHEN sender_id = ? THEN receiver_id 
-                ELSE sender_id 
+            CASE
+                WHEN sender_id = ? THEN receiver_id
+                ELSE sender_id
             END = u.id
         )
         WHERE sender_id = ? OR receiver_id = ?
@@ -157,8 +177,24 @@ if ($table_exists) {
 $messages = [];
 $selected_user = null;
 if ($selected_user_id > 0) {
+    // Check if is_seller column exists
+    $seller_check = $conn->query("SHOW COLUMNS FROM users LIKE 'is_seller'");
+    $has_seller_column = ($seller_check && $seller_check->num_rows > 0);
+
+    // Check if last_seen column exists
+    $last_seen_check = $conn->query("SHOW COLUMNS FROM users LIKE 'last_seen'");
+    $has_last_seen = ($last_seen_check && $last_seen_check->num_rows > 0);
+
     // Get selected user info
-    $user_stmt = $conn->prepare("SELECT id, username, first_name, last_name, profile_pic FROM users WHERE id = ?");
+    $select_columns = "id, username, first_name, last_name, profile_pic";
+    if ($has_seller_column) {
+        $select_columns .= ", is_seller";
+    }
+    if ($has_last_seen) {
+        $select_columns .= ", last_seen";
+    }
+
+    $user_stmt = $conn->prepare("SELECT $select_columns FROM users WHERE id = ?");
     $user_stmt->bind_param("i", $selected_user_id);
     $user_stmt->execute();
     $selected_user = $user_stmt->get_result()->fetch_assoc();
@@ -187,7 +223,8 @@ if ($selected_user_id > 0) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Messages - ReBuy</title>
+    <title>ReBuy</title>
+    <link rel="icon" type="image/x-icon" href="../../assets/logo.png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link rel="stylesheet" href="../css/header-footer.css">
     <style>
@@ -448,15 +485,47 @@ if ($selected_user_id > 0) {
                             <div class="conversation-item <?php echo $selected_user_id == $conv['other_user_id'] ? 'active' : ''; ?>" 
                                  onclick="selectConversation(<?php echo $conv['other_user_id']; ?>)">
                                 <div class="conversation-header">
-                                    <div class="user-avatar">
-                                        <?php if ($conv['profile_pic']): ?>
-                                            <img src="<?php echo htmlspecialchars($conv['profile_pic']); ?>" alt="Avatar">
+                                    <div class="user-avatar" style="position: relative;">
+                                        <?php
+                                            if (!empty($conv['profile_pic'])):
+                                                $pic = $conv['profile_pic'];
+                                                // Handle both possible database formats
+                                                if (strpos($pic, 'uploads/') === 0) {
+                                                    $img_src = '../' . $pic;
+                                                    $file_check = __DIR__ . '/../' . $pic;
+                                                } else {
+                                                    $img_src = '../uploads/profile_pics/' . $pic;
+                                                    $file_check = __DIR__ . '/../uploads/profile_pics/' . $pic;
+                                                }
+                                                if (file_exists($file_check)): ?>
+                                            <img src="<?php echo htmlspecialchars($img_src); ?>" alt="Avatar">
                                         <?php else: ?>
                                             <?php echo $initials; ?>
                                         <?php endif; ?>
+                                        <?php else: ?>
+                                            <?php echo $initials; ?>
+                                        <?php endif; ?>
+                                        <?php
+                                            // Online status indicator
+                                            $is_online = false;
+                                            if (isset($conv['last_seen']) && $conv['last_seen']) {
+                                                $last_seen_time = strtotime($conv['last_seen']);
+                                                $is_online = (time() - $last_seen_time) < 300; // Online if last seen within 5 minutes
+                                            }
+                                        ?>
+                                        <?php if ($is_online): ?>
+                                            <span style="position: absolute; bottom: 2px; right: 2px; width: 12px; height: 12px; background: #27ae60; border: 2px solid white; border-radius: 50%;"></span>
+                                        <?php endif; ?>
                                     </div>
                                     <div class="user-info">
-                                        <div class="user-name"><?php echo htmlspecialchars($conv['first_name'] . ' ' . $conv['last_name']); ?></div>
+                                        <div class="user-name">
+                                            <?php echo htmlspecialchars($conv['first_name'] . ' ' . $conv['last_name']); ?>
+                                            <?php if (isset($conv['is_seller']) && $conv['is_seller'] == 1): ?>
+                                                <span style="display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; font-size: 10px; background: #2d5016; color: white; padding: 1px 6px; border-radius: 8px;">
+                                                    <i class="fas fa-store" style="font-size: 8px;"></i> Seller
+                                                </span>
+                                            <?php endif; ?>
+                                        </div>
                                         <div class="last-message"><?php echo htmlspecialchars(substr($conv['last_message'], 0, 50)); ?></div>
                                     </div>
                                     <?php if ($conv['unread_count'] > 0): ?>
@@ -483,14 +552,51 @@ if ($selected_user_id > 0) {
                             <button class="back-btn" onclick="goBack()">
                                 <i class="fas fa-arrow-left"></i>
                             </button>
-                            <div class="user-avatar">
-                                <?php if ($selected_user['profile_pic']): ?>
-                                    <img src="<?php echo htmlspecialchars($selected_user['profile_pic']); ?>" alt="Avatar">
+                            <div class="user-avatar" style="position: relative;">
+                                <?php
+                                    if (!empty($selected_user['profile_pic'])):
+                                        $pic = $selected_user['profile_pic'];
+                                        // Handle both possible database formats
+                                        if (strpos($pic, 'uploads/') === 0) {
+                                            $img_src = '../' . $pic;
+                                            $file_check = __DIR__ . '/../' . $pic;
+                                        } else {
+                                            $img_src = '../uploads/profile_pics/' . $pic;
+                                            $file_check = __DIR__ . '/../uploads/profile_pics/' . $pic;
+                                        }
+                                        if (file_exists($file_check)): ?>
+                                    <img src="<?php echo htmlspecialchars($img_src); ?>" alt="Avatar">
                                 <?php else: ?>
                                     <?php echo strtoupper(substr($selected_user['first_name'], 0, 1) . substr($selected_user['last_name'], 0, 1)); ?>
                                 <?php endif; ?>
+                                <?php else: ?>
+                                    <?php echo strtoupper(substr($selected_user['first_name'], 0, 1) . substr($selected_user['last_name'], 0, 1)); ?>
+                                <?php endif; ?>
+                                <?php
+                                    // Online status indicator
+                                    $is_online = false;
+                                    if (isset($selected_user['last_seen']) && $selected_user['last_seen']) {
+                                        $last_seen_time = strtotime($selected_user['last_seen']);
+                                        $is_online = (time() - $last_seen_time) < 300; // Online if last seen within 5 minutes
+                                    }
+                                ?>
+                                <?php if ($is_online): ?>
+                                    <span style="position: absolute; bottom: 2px; right: 2px; width: 12px; height: 12px; background: #27ae60; border: 2px solid white; border-radius: 50%;"></span>
+                                <?php endif; ?>
                             </div>
-                            <div class="user-name"><?php echo htmlspecialchars($selected_user['first_name'] . ' ' . $selected_user['last_name']); ?></div>
+                            <div class="user-name">
+                                <?php echo htmlspecialchars($selected_user['first_name'] . ' ' . $selected_user['last_name']); ?>
+                                <?php if (isset($selected_user['is_seller']) && $selected_user['is_seller'] == 1): ?>
+                                    <span style="display: inline-flex; align-items: center; gap: 4px; margin-left: 8px; font-size: 11px; background: #2d5016; color: white; padding: 2px 8px; border-radius: 10px;">
+                                        <i class="fas fa-store" style="font-size: 9px;"></i> Seller
+                                    </span>
+                                <?php endif; ?>
+                                <?php if (isset($selected_user['last_seen']) && $selected_user['last_seen']): ?>
+                                    <span style="display: block; font-size: 11px; color: <?php echo $is_online ? '#27ae60' : '#999'; ?>; margin-top: 2px;">
+                                        <?php echo $is_online ? 'Online' : 'Last seen ' . date('M d, H:i', strtotime($selected_user['last_seen'])); ?>
+                                    </span>
+                                <?php endif; ?>
+                            </div>
                         </div>
 
                         <!-- Messages List -->
@@ -645,6 +751,19 @@ if ($selected_user_id > 0) {
         window.addEventListener('load', function() {
             scrollToBottom();
         });
+
+        // Heartbeat to keep online status updated
+        function sendHeartbeat() {
+            const formData = new FormData();
+            formData.append('action', 'heartbeat');
+            fetch('message.php', {
+                method: 'POST',
+                body: formData
+            }).catch(error => console.error('Heartbeat error:', error));
+        }
+
+        // Send heartbeat every 2 minutes to update online status
+        setInterval(sendHeartbeat, 120000);
 
         // Mobile: show chat area when conversation is selected
         <?php if ($selected_user_id > 0): ?>

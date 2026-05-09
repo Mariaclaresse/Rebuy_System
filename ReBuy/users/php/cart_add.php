@@ -130,7 +130,16 @@ if ($is_ajax) {
         'debug' => 'Operation completed successfully'
     ]);
 } else {
-    header("Location: cart.php");
+    // Set success message and redirect back to referring page or wishlist
+    $_SESSION['success'] = "Product successfully added to cart!";
+    
+    // Check if there's a referring page
+    $referrer = $_SERVER['HTTP_REFERER'] ?? '';
+    if (strpos($referrer, 'wishlist.php') !== false) {
+        header("Location: wishlist.php");
+    } else {
+        header("Location: cart.php");
+    }
 }
 exit();
 ?>

@@ -9,6 +9,17 @@ if (!isset($_SESSION['user_id'])) {
 
 $user_id = $_SESSION['user_id'];
 
+// Handle test notification creation
+if (isset($_GET['test_notif']) && $_GET['test_notif'] == '1') {
+    include 'notification_functions.php';
+    createNotification(
+        $user_id,
+        '🎉 Test Notification',
+        'This is a test notification to verify the system is working properly! You can see this in your notification panel.',
+        'system'
+    );
+}
+
 // Check if user is a seller
 $is_seller = false;
 $seller_check = $conn->query("SHOW COLUMNS FROM users LIKE 'is_seller'");
@@ -49,6 +60,20 @@ $stmt->bind_param("i", $user_id);
 $stmt->execute();
 $recent_orders = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
+
+// Get hot products with ratings 3.5-5 and minimum 5 reviews
+$stmt = $conn->prepare("
+    SELECT p.id, p.name, p.price, p.original_price, p.image_url, p.rating, p.category,
+           (SELECT COUNT(*) FROM reviews WHERE product_id = p.id) as review_count
+    FROM products p 
+    WHERE p.rating >= 3.5 AND p.stock > 0 
+    AND (SELECT COUNT(*) FROM reviews WHERE product_id = p.id) >= 5
+    ORDER BY p.rating DESC, p.created_at DESC 
+    LIMIT 8
+");
+$stmt->execute();
+$hot_products = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$stmt->close();
 ?>
 
 <!DOCTYPE html>
@@ -56,7 +81,8 @@ $stmt->close();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - ReBuy</title>
+    <title>ReBuy</title>
+    <link rel="icon" type="image/x-icon" href="../../assets/logo.png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link rel="stylesheet" href="../css/header-footer.css">
     <style>
@@ -229,8 +255,8 @@ $stmt->close();
         }
         .categories-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 30px;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 25px;
             margin-bottom: 60px;
             max-width: 1200px;
             margin-left: auto;
@@ -239,26 +265,56 @@ $stmt->close();
         }
         .category-card {
             background: white;
-            border-radius: 10px;
+            border-radius: 16px;
             overflow: hidden;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            transition: transform 0.3s ease;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             cursor: pointer;
+            position: relative;
+        }
+        .category-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(45, 80, 22, 0.1) 0%, rgba(74, 124, 46, 0.1) 100%);
+            opacity: 0;
+            transition: opacity 0.4s ease;
+            z-index: 1;
         }
         .category-card:hover {
-            transform: translateY(-5px);
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 15px 40px rgba(45, 80, 22, 0.15);
+        }
+        .category-card:hover::before {
+            opacity: 1;
+        }
+        .category-card:hover img {
+            transform: scale(1.1);
+        }
+        .category-card:hover h3 {
+            color: #2d5016;
+            font-weight: 600;
         }
         .category-card img {
             width: 100%;
-            height: 200px;
+            height: 180px;
             object-fit: cover;
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .category-card h3 {
-            padding: 15px;
+            padding: 18px;
             margin: 0;
             text-align: center;
             color: #333;
             font-size: 16px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            position: relative;
+            z-index: 2;
+            background: white;
         }
         .rooms-section {
             margin-bottom: 60px;
@@ -368,6 +424,21 @@ $stmt->close();
         .btn-add-cart:hover {
             background: #4a7c2e;
         }
+        .rating-stars {
+            color: #ffc107;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        .rating-stars .empty {
+            color: #ddd;
+        }
+        .product-category {
+            color: #666;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
     </style>
 </head>
 <body>
@@ -453,43 +524,33 @@ $stmt->close();
         <section>
             <h2 class="section-title">Shop by categories</h2>
             <div class="categories-grid">
-                <div class="category-card" onclick="window.location.href='shop.php'">
-                    <img src="https://images.unsplash.com/photo-1586023492125-27b2c045efd7?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=400&q=80" alt="Dining Chair">
-                    <h3>Dining Chair</h3>
+                <div class="category-card" onclick="window.location.href='shop.php?category=Electronics'">
+                    <img src="https://images.unsplash.com/photo-1498049794561-7780e7231661?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=400&q=80" alt="Electronics">
+                    <h3>Electronics</h3>
                 </div>
-                <div class="category-card" onclick="window.location.href='shop.php'">
-                    <img src="https://images.unsplash.com/photo-1555041469-a586c61ea9bc?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=400&q=80" alt="Sofa">
-                    <h3>Sofa</h3>
+                <div class="category-card" onclick="window.location.href='shop.php?category=Clothing'">
+                    <img src="https://images.unsplash.com/photo-1445205170230-053b83016050?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=400&q=80" alt="Clothing">
+                    <h3>Clothing</h3>
                 </div>
-                <div class="category-card" onclick="window.location.href='shop.php'">
-                    <img src="https://images.unsplash.com/photo-1506439773649-6e0eb8cfb237?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=400&q=80" alt="Table">
-                    <h3>Table</h3>
+                <div class="category-card" onclick="window.location.href='shop.php?category=Books'">
+                    <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=400&q=80" alt="Books">
+                    <h3>Books</h3>
                 </div>
-                <div class="category-card" onclick="window.location.href='shop.php'">
-                    <img src="https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=400&q=80" alt="Lamp">
-                    <h3>Lamp</h3>
+                <div class="category-card" onclick="window.location.href='shop.php?category=Home & Garden'">
+                    <img src="https://images.unsplash.com/photo-1586023492125-27b2c045efd7?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=400&q=80" alt="Home & Garden">
+                    <h3>Home & Garden</h3>
                 </div>
-            </div>
-        </section>
-
-        <!-- Living Room & Dining Room -->
-        <section class="rooms-section">
-            <div class="rooms-grid">
-                <div class="room-card">
-                    <img src="https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=600&q=80" alt="Living Room">
-                    <div class="room-content">
-                        <h3>Living Room</h3>
-                        <p>Transform your living space with our premium furniture collection</p>
-                        <a href="shop.php" class="btn-shop">Shop now</a>
-                    </div>
+                <div class="category-card" onclick="window.location.href='shop.php?category=Sports'">
+                    <img src="https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=400&q=80" alt="Sports">
+                    <h3>Sports</h3>
                 </div>
-                <div class="room-card">
-                    <img src="https://images.unsplash.com/photo-1586023492125-27b2c045efd7?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=600&q=80" alt="Dining Room">
-                    <div class="room-content">
-                        <h3>Dining Room</h3>
-                        <p>Create memorable moments with our elegant dining furniture</p>
-                        <a href="shop.php" class="btn-shop">Shop now</a>
-                    </div>
+                <div class="category-card" onclick="window.location.href='shop.php?category=Toys'">
+                    <img src="https://images.unsplash.com/photo-1596462502278-27bfdc403348?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=400&q=80" alt="Toys">
+                    <h3>Toys</h3>
+                </div>
+                <div class="category-card" onclick="window.location.href='shop.php?category=Other'">
+                    <img src="https://images.unsplash.com/photo-1560472354-b33ff0c44a43?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=400&q=80" alt="Other">
+                    <h3>Other</h3>
                 </div>
             </div>
         </section>
@@ -497,6 +558,63 @@ $stmt->close();
         <!-- Hot Products -->
         <section class="hot-products">
             <h2 class="section-title">Hot Products</h2>
+            <div class="products-grid">
+                <?php if (!empty($hot_products)): ?>
+                    <?php foreach ($hot_products as $product): ?>
+                        <div class="product-card">
+                            <?php if (!empty($product['image_url'])): ?>
+                                <img src="<?php echo htmlspecialchars($product['image_url']); ?>" alt="<?php echo htmlspecialchars($product['name']); ?>">
+                            <?php else: ?>
+                                <img src="https://images.unsplash.com/photo-1560472354-b33ff0c44a43?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=400&q=80" alt="<?php echo htmlspecialchars($product['name']); ?>">
+                            <?php endif; ?>
+                            
+                            <?php if (!empty($product['original_price']) && $product['original_price'] > $product['price']): ?>
+                                <div class="discount-badge">
+                                    <?php echo round((($product['original_price'] - $product['price']) / $product['original_price']) * 100); ?>% OFF
+                                </div>
+                            <?php endif; ?>
+                            
+                            <div class="product-info">
+                                <div class="product-category"><?php echo htmlspecialchars($product['category'] ?? 'General'); ?></div>
+                                <h4><?php echo htmlspecialchars($product['name']); ?></h4>
+                                
+                                <div class="rating-stars">
+                                    <?php 
+                                    $rating = round($product['rating']);
+                                    for ($i = 1; $i <= 5; $i++) {
+                                        if ($i <= $rating) {
+                                            echo '<i class="fas fa-star"></i>';
+                                        } else {
+                                            echo '<i class="fas fa-star empty"></i>';
+                                        }
+                                    }
+                                    ?>
+                                    <span style="color: #666; font-size: 12px; margin-left: 5px;">
+                                        (<?php echo number_format($product['rating'], 1); ?>)
+                                    </span>
+                                </div>
+                                
+                                <div class="product-price">
+                                    <span class="current-price">₱<?php echo number_format($product['price'], 2); ?></span>
+                                    <?php if (!empty($product['original_price']) && $product['original_price'] > $product['price']): ?>
+                                        <span class="original-price">₱<?php echo number_format($product['original_price'], 2); ?></span>
+                                    <?php endif; ?>
+                                </div>
+                                
+                                <button class="btn-add-cart" onclick="addToCart(<?php echo $product['id']; ?>)">
+                                    <i class="fas fa-shopping-cart"></i> Add to Cart
+                                </button>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <div style="grid-column: 1 / -1; text-align: center; padding: 60px 20px; color: #666;">
+                        <i class="fas fa-fire" style="font-size: 48px; margin-bottom: 20px; opacity: 0.3;"></i>
+                        <h3 style="margin-bottom: 10px;">No hot products available</h3>
+                        <p>Check back soon for products with high ratings!</p>
+                    </div>
+                <?php endif; ?>
+            </div>
         </section>
 
          <!-- Footer -->
@@ -559,6 +677,7 @@ $stmt->close();
     </footer>
     </div>
 
+    <script src="../js/notification.js"></script>
     <script>
         // User dropdown menu
         document.querySelector('.icon-btn').addEventListener('click', function() {
@@ -574,12 +693,87 @@ $stmt->close();
         });
 
         // Add to cart functionality
-        document.querySelectorAll('.btn-add-cart').forEach(button => {
-            button.addEventListener('click', function() {
-                const productName = this.closest('.product-info').querySelector('h4').textContent;
-                alert(`${productName} added to cart!`);
+        function addToCart(productId) {
+            fetch('add_to_cart.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'product_id=' + productId
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Show success notification
+                    showNotification('Product added to cart successfully!', 'success');
+                } else {
+                    showNotification(data.message || 'Failed to add product to cart', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('An error occurred. Please try again.', 'error');
             });
-        });
+        }
+
+        // Notification function
+        function showNotification(message, type = 'info') {
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: ${type === 'success' ? '#28a745' : type === 'error' ? '#dc3545' : '#17a2b8'};
+                color: white;
+                padding: 15px 20px;
+                border-radius: 5px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                z-index: 9999;
+                font-weight: 500;
+                max-width: 300px;
+                animation: slideInRight 0.3s ease;
+            `;
+            notification.textContent = message;
+            
+            // Add to page
+            document.body.appendChild(notification);
+            
+            // Remove after 3 seconds
+            setTimeout(() => {
+                notification.style.animation = 'slideOutRight 0.3s ease';
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 300);
+            }, 3000);
+        }
+
+        // Add animations
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideInRight {
+                from {
+                    transform: translateX(100%);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+            @keyframes slideOutRight {
+                from {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+                to {
+                    transform: translateX(100%);
+                    opacity: 0;
+                }
+            }
+        `;
+        document.head.appendChild(style);
 
         // Carousel functionality
         let currentSlide = 0;

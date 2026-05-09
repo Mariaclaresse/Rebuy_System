@@ -60,6 +60,33 @@ $reviews_stmt->execute();
 $reviews_result = $reviews_stmt->get_result();
 $reviews_stmt->close();
 
+// Get total number of reviews for this product
+$total_reviews_stmt = $conn->prepare("SELECT COUNT(*) as total_reviews FROM reviews WHERE product_id = ?");
+$total_reviews_stmt->bind_param("i", $product_id);
+$total_reviews_stmt->execute();
+$total_reviews_result = $total_reviews_stmt->get_result();
+$total_reviews_data = $total_reviews_result->fetch_assoc();
+$total_reviews = $total_reviews_data['total_reviews'];
+$total_reviews_stmt->close();
+
+// Get count of reviews for each star rating
+$rating_counts_stmt = $conn->prepare("SELECT rating, COUNT(*) as count FROM reviews WHERE product_id = ? GROUP BY rating ORDER BY rating DESC");
+$rating_counts_stmt->bind_param("i", $product_id);
+$rating_counts_stmt->execute();
+$rating_counts_result = $rating_counts_stmt->get_result();
+$rating_counts = array();
+while ($row = $rating_counts_result->fetch_assoc()) {
+    $rating_counts[$row['rating']] = $row['count'];
+}
+$rating_counts_stmt->close();
+
+// Initialize all star counts to 0
+for ($i = 1; $i <= 5; $i++) {
+    if (!isset($rating_counts[$i])) {
+        $rating_counts[$i] = 0;
+    }
+}
+
 // Check if current user has already reviewed this product
 $user_has_reviewed = false;
 $user_review = null;
@@ -81,7 +108,8 @@ if ($is_logged_in) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo htmlspecialchars($product['name']); ?> - ReBuy</title>
+    <title>ReBuy</title>
+    <link rel="icon" type="image/x-icon" href="../../assets/logo.png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link rel="stylesheet" href="../css/header-footer.css">
     <style>
@@ -1135,7 +1163,21 @@ if ($is_logged_in) {
                         }
                         ?>
                     </div>
-                    <span class="rating-text"><?php echo number_format($rating, 1); ?> (<?php echo rand(10, 100); ?> reviews)</span>
+                    <span class="rating-text"><?php echo number_format($rating, 1); ?> (<?php echo $total_reviews; ?> reviews)</span>
+                </div>
+                
+                <!-- Rating Breakdown -->
+                <div class="rating-breakdown" style="margin-bottom: 15px; background: #f8f9fa; padding: 15px; border-radius: 8px;">
+                    <div style="font-weight: 600; margin-bottom: 10px; color: #333;">Rating Breakdown</div>
+                    <?php for ($i = 5; $i >= 1; $i--): ?>
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 5px;">
+                            <span style="width: 60px; font-size: 14px;"><?php echo $i; ?> stars</span>
+                            <div style="flex: 1; background: #e9ecef; height: 8px; border-radius: 4px; overflow: hidden;">
+                                <div style="background: #ffc107; height: 100%; width: <?php echo $total_reviews > 0 ? ($rating_counts[$i] / $total_reviews) * 100 : 0; ?>%; transition: width 0.3s ease;"></div>
+                            </div>
+                            <span style="width: 40px; text-align: right; font-size: 14px; color: #666;"><?php echo $rating_counts[$i]; ?></span>
+                        </div>
+                    <?php endfor; ?>
                 </div>
 
                 <div class="product-price">
@@ -1760,6 +1802,159 @@ if ($is_logged_in) {
                 document.querySelectorAll('.weight-btn').forEach(b => b.classList.remove('active'));
                 this.classList.add('active');
             });
+        });
+
+        // Real-time stock monitoring
+        let currentStock = <?php echo $product['stock_quantity'] ?? 0; ?>;
+        let stockCheckInterval;
+        
+        function checkStockUpdate() {
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', 'ajax_stock_update.php?action=get_stock&product_id=<?php echo $product_id; ?>', true);
+            
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        if (response.success && response.stock_quantity !== currentStock) {
+                            const oldStock = currentStock;
+                            currentStock = response.stock_quantity;
+                            updateStockDisplay(oldStock, currentStock);
+                        }
+                    } catch (e) {
+                        // Silent error handling
+                    }
+                }
+            };
+            
+            xhr.send();
+        }
+        
+        function updateStockDisplay(oldStock, newStock) {
+            // Update stock badge
+            const stockBadge = document.querySelector('.product-badge');
+            if (stockBadge) {
+                if (newStock <= 0) {
+                    stockBadge.style.background = '#dc3545';
+                    stockBadge.textContent = 'Out of Stock';
+                } else {
+                    stockBadge.style.background = '#e8f5e8';
+                    stockBadge.textContent = 'In Stock';
+                }
+            }
+            
+            // Update stock meta information
+            const stockMeta = document.querySelector('.meta-value');
+            if (stockMeta && stockMeta.textContent.includes('units')) {
+                stockMeta.textContent = newStock + ' units';
+            }
+            
+            // Update quantity input max value
+            const quantityInput = document.getElementById('quantity');
+            if (quantityInput) {
+                quantityInput.max = newStock > 0 ? newStock : 1;
+                if (parseInt(quantityInput.value) > newStock) {
+                    quantityInput.value = newStock > 0 ? newStock : 1;
+                }
+            }
+            
+            // Update add to cart buttons
+            const addCartBtns = document.querySelectorAll('.btn-add-cart, .btn-buy-now');
+            addCartBtns.forEach(btn => {
+                if (newStock <= 0) {
+                    btn.disabled = true;
+                    btn.style.opacity = '0.5';
+                    btn.style.cursor = 'not-allowed';
+                    if (btn.classList.contains('btn-add-cart')) {
+                        btn.innerHTML = '<i class="fas fa-shopping-cart"></i> Out of Stock';
+                    } else {
+                        btn.textContent = 'Out of Stock';
+                    }
+                } else {
+                    btn.disabled = false;
+                    btn.style.opacity = '1';
+                    btn.style.cursor = 'pointer';
+                    if (btn.classList.contains('btn-add-cart')) {
+                        btn.innerHTML = '<i class="fas fa-shopping-cart"></i> Add to Cart';
+                    } else {
+                        btn.textContent = 'Buy Now';
+                    }
+                }
+            });
+            
+            // Show stock update notification
+            if (newStock > oldStock) {
+                showStockNotification('Stock increased! ' + (newStock - oldStock) + ' units added.', 'success');
+            } else if (newStock < oldStock) {
+                showStockNotification('Stock decreased! ' + (oldStock - newStock) + ' units sold.', 'info');
+            }
+        }
+        
+        function showStockNotification(message, type) {
+            // Remove existing stock notifications
+            const existingNotif = document.querySelector('.stock-notification');
+            if (existingNotif) {
+                existingNotif.remove();
+            }
+            
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.className = 'stock-notification';
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                z-index: 9999;
+                padding: 15px 20px;
+                border-radius: 8px;
+                min-width: 300px;
+                animation: slideIn 0.3s ease;
+                background: ${type === 'success' ? '#d4edda' : '#d1ecf1'};
+                color: ${type === 'success' ? '#155724' : '#0c5460'};
+                border-left: 4px solid ${type === 'success' ? '#28a745' : '#17a2b8'};
+                font-size: 14px;
+            `;
+            notification.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'info-circle'}"></i> ${message}`;
+            
+            // Add to page
+            document.body.appendChild(notification);
+            
+            // Remove after 5 seconds
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        document.body.removeChild(notification);
+                    }
+                }, 300);
+            }, 5000);
+        }
+        
+        // Add CSS animations
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+        
+        // Start stock monitoring (check every 10 seconds)
+        stockCheckInterval = setInterval(checkStockUpdate, 10000);
+        
+        // Stop monitoring when page is hidden to save resources
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                clearInterval(stockCheckInterval);
+            } else {
+                stockCheckInterval = setInterval(checkStockUpdate, 10000);
+                checkStockUpdate(); // Check immediately when page becomes visible
+            }
         });
     </script>
 </body>

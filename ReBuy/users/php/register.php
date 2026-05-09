@@ -37,10 +37,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     if (empty($first_name) || empty($last_name) || empty($username) || empty($email) || empty($password)) {
         $error = "All required fields must be filled!";
-    } elseif (!preg_match('/^[A-Z][a-zA-Z]*$/', $first_name)) {
-        $error = "First Name must start with a capital letter and contain only letters!";
-    } elseif (!preg_match('/^[A-Z][a-zA-Z]*$/', $last_name)) {
-        $error = "Last Name must start with a capital letter and contain only letters!";
+    } elseif (!preg_match('/^[A-Z][a-z]*(\s[A-Z][a-z]*)*$/', $first_name)) {
+        $error = "First Name must start with a capital letter followed by lowercase letters (spaces allowed between words)!";
+    } elseif (!preg_match('/^[A-Z][a-z]*(\s[A-Z][a-z]*)*$/', $last_name)) {
+        $error = "Last Name must start with a capital letter followed by lowercase letters (spaces allowed between words)!";
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error = "Please enter a valid email address!";
     } elseif (!preg_match('/^[a-zA-Z0-9._%+-]+@gmail\.com$/', $email)) {
@@ -118,7 +118,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Register - ReBuy</title>
+    <title>ReBuy</title>
+    <link rel="icon" type="image/x-icon" href="../../assets/logo.png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
         * {
@@ -331,6 +332,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         .field-error.show {
             display: block;
+        }
+
+        /* REQUIRED ASTERISK */
+        .required-asterisk {
+            color: #dc3545;
+            font-weight: bold;
+            margin-left: 3px;
+            transition: opacity 0.3s;
+        }
+
+        .required-asterisk.hidden {
+            opacity: 0;
+            display: none;
         }
 
         /* DIVIDER */
@@ -555,13 +569,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <div class="input-group">
                 <i class="fas fa-user left-icon"></i>
                 <input type="text" name="first_name" placeholder=" " required>
-                <label>First Name</label>
+                <label>First Name<span class="required-asterisk">*</span></label>
                 <div class="field-error" id="first_name_error"></div>
             </div>
             <div class="input-group">
                 <i class="fas fa-user left-icon"></i>
                 <input type="text" name="last_name" placeholder=" " required>
-                <label>Last Name</label>
+                <label>Last Name<span class="required-asterisk">*</span></label>
                 <div class="field-error" id="last_name_error"></div>
             </div>
         </div>
@@ -578,12 +592,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <option value="Other">Other</option>
     </select>
 
-    <label>Select Gender</label>
+    <label>Select Gender<span class="required-asterisk">*</span></label>
 </div>
             <div class="input-group">
                 <i class="fas fa-calendar left-icon"></i>
                 <input type="date" name="birthdate" placeholder=" " required>
-                <label>Birthdate</label>
+                <label>Birthdate<span class="required-asterisk">*</span></label>
             </div>
         </div>
 
@@ -591,7 +605,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <div class="input-group">
             <i class="fas fa-hourglass-half left-icon"></i>
             <input type="number" name="age" placeholder=" " min="1" max="120" required>
-            <label>Age</label>
+            <label>Age<span class="required-asterisk">*</span></label>
         </div>
 
         <div class="step-buttons">
@@ -608,12 +622,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <div class="input-group">
                 <i class="fas fa-home left-icon"></i>
                 <input type="text" name="purok_street" placeholder=" " required>
-                <label>Purok/Street</label>
+                <label>Purok/Street<span class="required-asterisk">*</span></label>
             </div>
             <div class="input-group">
                 <i class="fas fa-map-marker-alt left-icon"></i>
                 <input type="text" name="barangay" placeholder=" " required>
-                <label>Barangay</label>
+                <label>Barangay<span class="required-asterisk">*</span></label>
             </div>
         </div>
 
@@ -622,12 +636,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <div class="input-group">
                 <i class="fas fa-city left-icon"></i>
                 <input type="text" name="municipality_city" placeholder=" " required>
-                <label>Municipality/City</label>
+                <label>Municipality/City<span class="required-asterisk">*</span></label>
             </div>
             <div class="input-group">
                 <i class="fas fa-map left-icon"></i>
                 <input type="text" name="province" placeholder=" " required>
-                <label>Province</label>
+                <label>Province<span class="required-asterisk">*</span></label>
             </div>
         </div>
 
@@ -636,12 +650,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <div class="input-group">
                 <i class="fas fa-globe left-icon"></i>
                 <input type="text" name="country" placeholder=" " required>
-                <label>Country</label>
+                <label>Country<span class="required-asterisk">*</span></label>
             </div>
             <div class="input-group">
                 <i class="fas fa-mail-bulk left-icon"></i>
                 <input type="text" name="zip_code" placeholder=" " maxlength="10" required>
-                <label>Zip Code</label>
+                <label>Zip Code<span class="required-asterisk">*</span></label>
                 <div class="field-error" id="zip_code_error"></div>
             </div>
         </div>
@@ -662,7 +676,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <input type="email" name="email" placeholder=" " required 
                    pattern="[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
                    title="Please enter a valid email address (e.g., user@example.com)">
-            <label>Email</label>
+            <label>Email<span class="required-asterisk">*</span></label>
             <div class="field-error" id="email_error"></div>
         </div>
 
@@ -670,7 +684,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <div class="input-group">
             <i class="fas fa-user left-icon"></i>
             <input type="text" name="username" placeholder=" " minlength="6" maxlength="6" required>
-            <label>Username</label>
+            <label>Username<span class="required-asterisk">*</span></label>
             <div class="field-error" id="username_error"></div>
         </div>
 
@@ -679,14 +693,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <div class="input-group">
                 <i class="fas fa-lock left-icon"></i>
                 <input type="password" id="password" name="password" placeholder=" " minlength="8" maxlength="10" required>
-                <label>Password</label>
+                <label>Password<span class="required-asterisk">*</span></label>
                 <i class="fas fa-eye right-icon" onclick="togglePassword()"></i>
                 <div class="field-error" id="password_error"></div>
             </div>
             <div class="input-group">
                 <i class="fas fa-lock left-icon"></i>
                 <input type="password" id="confirm_password" name="confirm_password" placeholder=" " minlength="8" maxlength="10" required>
-                <label>Confirm Password</label>
+                <label>Confirm Password<span class="required-asterisk">*</span></label>
                 <i class="fas fa-eye right-icon" onclick="toggleConfirmPassword()"></i>
                 <div class="field-error" id="confirm_password_error"></div>
             </div>
@@ -737,12 +751,104 @@ function toggleConfirmPassword() {
     }
 }
 
+function validateStep(stepNumber) {
+    const stepContent = document.getElementById('step' + stepNumber + '-content');
+    const requiredInputs = stepContent.querySelectorAll('input[required], select[required]');
+    let isValid = true;
+
+    requiredInputs.forEach(function(input) {
+        // Check if field is empty
+        if (input.value.trim() === '') {
+            isValid = false;
+            input.classList.add('error');
+        } else {
+            // Check if field has validation error
+            if (input.classList.contains('error')) {
+                isValid = false;
+            }
+        }
+    });
+
+    return isValid;
+}
+
+function saveFormData() {
+    const form = document.getElementById('registrationForm');
+    const formData = new FormData(form);
+    const data = {};
+
+    formData.forEach((value, key) => {
+        data[key] = value;
+    });
+
+    localStorage.setItem('registrationFormData', JSON.stringify(data));
+    localStorage.setItem('currentStep', document.querySelector('.step-content.active').id);
+}
+
+function loadFormData() {
+    const savedData = localStorage.getItem('registrationFormData');
+    const savedStep = localStorage.getItem('currentStep');
+
+    if (savedData) {
+        const data = JSON.parse(savedData);
+        const form = document.getElementById('registrationForm');
+
+        for (const key in data) {
+            const input = form.querySelector(`[name="${key}"]`);
+            if (input) {
+                input.value = data[key];
+                // Trigger validation and asterisk toggle
+                input.dispatchEvent(new Event('input'));
+                input.dispatchEvent(new Event('change'));
+                // Ensure asterisk is hidden for valid inputs
+                if (input.value.trim() !== '') {
+                    input.classList.add('valid');
+                    toggleAsterisk(input);
+                }
+            }
+        }
+    }
+
+    if (savedStep) {
+        // Hide all steps
+        document.querySelectorAll('.step-content').forEach(function(content) {
+            content.classList.remove('active');
+        });
+        document.querySelectorAll('.step').forEach(function(step) {
+            step.classList.remove('active', 'completed');
+        });
+
+        // Show saved step
+        const stepNum = savedStep.replace('step', '').replace('-content', '');
+        document.getElementById(savedStep).classList.add('active');
+        document.getElementById('step' + stepNum).classList.add('active');
+
+        // Mark previous steps as completed
+        for (let i = 1; i < stepNum; i++) {
+            document.getElementById('step' + i).classList.add('completed');
+        }
+    }
+}
+
+function clearFormData() {
+    localStorage.removeItem('registrationFormData');
+    localStorage.removeItem('currentStep');
+}
+
 function nextStep(currentStep) {
+    // Validate current step before proceeding
+    if (!validateStep(currentStep)) {
+        return; // Don't proceed if validation fails
+    }
+
+    // Save form data before proceeding
+    saveFormData();
+
     // Hide current step
     document.getElementById('step' + currentStep + '-content').classList.remove('active');
     document.getElementById('step' + currentStep).classList.remove('active');
     document.getElementById('step' + currentStep).classList.add('completed');
-    
+
     // Show next step
     const nextStepNum = currentStep + 1;
     document.getElementById('step' + nextStepNum + '-content').classList.add('active');
@@ -750,10 +856,13 @@ function nextStep(currentStep) {
 }
 
 function prevStep(currentStep) {
+    // Save form data before going back
+    saveFormData();
+
     // Hide current step
     document.getElementById('step' + currentStep + '-content').classList.remove('active');
     document.getElementById('step' + currentStep).classList.remove('active');
-    
+
     // Show previous step
     const prevStepNum = currentStep - 1;
     document.getElementById('step' + prevStepNum + '-content').classList.add('active');
@@ -794,24 +903,26 @@ function calculateAge() {
 function validateFirstName(input) {
     const firstName = input.value.trim();
     const errorDiv = document.getElementById('first_name_error');
-    
+
     if (firstName === '') {
         input.classList.remove('error', 'valid');
         errorDiv.classList.remove('show');
         return true; // Allow empty for now, will be validated on submit
     }
-    
-    const namePattern = /^[A-Z][a-zA-Z]*$/;
+
+    const namePattern = /^[A-Z][a-z]*(\s[A-Z][a-z]*)*$/;
     if (!namePattern.test(firstName)) {
         input.classList.add('error');
         input.classList.remove('valid');
-        errorDiv.textContent = 'First Name must start with a capital letter and contain only letters!';
+        errorDiv.textContent = 'First Name must start with a capital letter followed by lowercase letters (spaces allowed between words)!';
         errorDiv.classList.add('show');
+        toggleAsterisk(input);
         return false;
     } else {
         input.classList.remove('error');
         input.classList.add('valid');
         errorDiv.classList.remove('show');
+        toggleAsterisk(input);
         return true;
     }
 }
@@ -819,24 +930,26 @@ function validateFirstName(input) {
 function validateLastName(input) {
     const lastName = input.value.trim();
     const errorDiv = document.getElementById('last_name_error');
-    
+
     if (lastName === '') {
         input.classList.remove('error', 'valid');
         errorDiv.classList.remove('show');
         return true; // Allow empty for now, will be validated on submit
     }
-    
-    const namePattern = /^[A-Z][a-zA-Z]*$/;
+
+    const namePattern = /^[A-Z][a-z]*(\s[A-Z][a-z]*)*$/;
     if (!namePattern.test(lastName)) {
         input.classList.add('error');
         input.classList.remove('valid');
-        errorDiv.textContent = 'Last Name must start with a capital letter and contain only letters!';
+        errorDiv.textContent = 'Last Name must start with a capital letter followed by lowercase letters (spaces allowed between words)!';
         errorDiv.classList.add('show');
+        toggleAsterisk(input);
         return false;
     } else {
         input.classList.remove('error');
         input.classList.add('valid');
         errorDiv.classList.remove('show');
+        toggleAsterisk(input);
         return true;
     }
 }
@@ -857,11 +970,13 @@ function validateEmail(input) {
         input.classList.remove('valid');
         errorDiv.textContent = 'Only Gmail email addresses are allowed (e.g., user@gmail.com)!';
         errorDiv.classList.add('show');
+        toggleAsterisk(input);
         return false;
     } else {
         input.classList.remove('error');
         input.classList.add('valid');
         errorDiv.classList.remove('show');
+        toggleAsterisk(input);
         return true;
     }
 }
@@ -881,11 +996,13 @@ function validateUsername(input) {
         input.classList.remove('valid');
         errorDiv.textContent = 'Username must be exactly 6 characters!';
         errorDiv.classList.add('show');
+        toggleAsterisk(input);
         return false;
     } else {
         input.classList.remove('error');
         input.classList.add('valid');
         errorDiv.classList.remove('show');
+        toggleAsterisk(input);
         return true;
     }
 }
@@ -897,20 +1014,23 @@ function validatePassword(input) {
     if (password === '') {
         input.classList.remove('error', 'valid');
         errorDiv.classList.remove('show');
+        toggleAsterisk(input);
         return true; // Allow empty for now, will be validated on submit
     }
     
-    const passwordPattern = /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};\':"\\|,.<>\/?])[a-zA-Z\d!@#$%^&*()_+\-=\[\]{};\':"\\|,.<>\/?]{8,10}$/;
+    const passwordPattern = /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?])[a-zA-Z\d!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]{8,10}$/;
     if (!passwordPattern.test(password)) {
         input.classList.add('error');
         input.classList.remove('valid');
         errorDiv.textContent = 'Password must be 8-10 characters with mix of letters, numbers, and special characters!';
         errorDiv.classList.add('show');
+        toggleAsterisk(input);
         return false;
     } else {
         input.classList.remove('error');
         input.classList.add('valid');
         errorDiv.classList.remove('show');
+        toggleAsterisk(input);
         return true;
     }
 }
@@ -931,11 +1051,13 @@ function validateConfirmPassword(input) {
         input.classList.remove('valid');
         errorDiv.textContent = 'Passwords do not match!';
         errorDiv.classList.add('show');
+        toggleAsterisk(input);
         return false;
     } else {
         input.classList.remove('error');
         input.classList.add('valid');
         errorDiv.classList.remove('show');
+        toggleAsterisk(input);
         return true;
     }
 }
@@ -956,17 +1078,75 @@ function validateZipCode(input) {
         input.classList.remove('valid');
         errorDiv.textContent = 'Zip Code must contain numbers only!';
         errorDiv.classList.add('show');
+        toggleAsterisk(input);
         return false;
     } else {
         input.classList.remove('error');
         input.classList.add('valid');
         errorDiv.classList.remove('show');
+        toggleAsterisk(input);
         return true;
+    }
+}
+
+// Toggle required asterisk visibility based on valid input
+function toggleAsterisk(input) {
+    const asterisk = input.parentElement.querySelector('.required-asterisk');
+    if (asterisk) {
+        const isValid = input.classList.contains('valid');
+        if (isValid && input.value.trim() !== '') {
+            asterisk.classList.add('hidden');
+        } else {
+            asterisk.classList.remove('hidden');
+        }
     }
 }
 
 // Add event listeners for real-time validation
 document.addEventListener('DOMContentLoaded', function() {
+    // Load saved form data
+    loadFormData();
+
+    // Clear form data on successful submission
+    const form = document.getElementById('registrationForm');
+    if (form) {
+        form.addEventListener('submit', function() {
+            clearFormData();
+        });
+    }
+
+    // Add asterisk toggle for all required inputs
+    const requiredInputs = document.querySelectorAll('input[required], select[required]');
+    requiredInputs.forEach(function(input) {
+        input.addEventListener('input', function() {
+            toggleAsterisk(this);
+            // For fields without specific validation, add valid class if not empty
+            if (!this.classList.contains('error') && this.value.trim() !== '') {
+                this.classList.add('valid');
+                toggleAsterisk(this);
+            }
+            // Auto-save form data on input
+            saveFormData();
+        });
+        input.addEventListener('change', function() {
+            toggleAsterisk(this);
+            // For fields without specific validation, add valid class if not empty
+            if (!this.classList.contains('error') && this.value.trim() !== '') {
+                this.classList.add('valid');
+                toggleAsterisk(this);
+            }
+            // Auto-save form data on change
+            saveFormData();
+        });
+    });
+
+    // Auto-save all form inputs (including non-required)
+    const allInputs = document.querySelectorAll('input, select');
+    allInputs.forEach(function(input) {
+        input.addEventListener('input', saveFormData);
+        input.addEventListener('change', saveFormData);
+    });
+
     // Birthdate age calculation
     const birthdateInput = document.querySelector('input[name="birthdate"]');
     if (birthdateInput) {

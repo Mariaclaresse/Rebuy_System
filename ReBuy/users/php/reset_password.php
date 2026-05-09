@@ -50,7 +50,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reset Password - ReBuy</title>
+    <title>ReBuy</title>
+    <link rel="icon" type="image/x-icon" href="../../assets/logo.png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
         * {
@@ -248,6 +249,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <h2>Reset Password</h2>
         <p>Enter your new password</p>
     </div>
+
+    <?php if (isset($_SESSION['reset_otp'])): ?>
+    <div style="background: #f8f9fa; border: 2px dashed #2d5016; border-radius: 10px; padding: 15px; text-align: center; margin-bottom: 20px;">
+        <p style="font-size: 14px; color: #666; margin-bottom: 10px;">Your verification OTP:</p>
+        <div style="background: #2d5016; color: white; font-size: 20px; font-weight: bold; padding: 10px; border-radius: 5px; letter-spacing: 3px;">
+            <?php echo htmlspecialchars($_SESSION['reset_otp']); ?>
+        </div>
+        <p style="font-size: 12px; color: #666; margin-top: 5px;">Keep this OTP for your reference</p>
+    </div>
+    <?php endif; ?>
 
     <?php if (!empty($error)): ?>
         <div class="error-message">

@@ -1,9 +1,18 @@
 <?php
 require_once 'db.php';
+require_once 'notification_functions.php';
 
 // Check if user is logged in
 $is_logged_in = isset($_SESSION['user_id']);
 $user_id = $is_logged_in ? $_SESSION['user_id'] : null;
+
+// Get notification count if user is logged in
+$notification_count = 0;
+$recent_notifications = [];
+if ($is_logged_in) {
+    $notification_count = getUnreadNotificationCount($user_id);
+    $recent_notifications = getUserNotifications($user_id, 5);
+}
 
 // Check if user is a seller
 $is_seller = false;
@@ -20,21 +29,18 @@ if ($is_logged_in) {
         $is_seller = isset($user['is_seller']) && $user['is_seller'] == 1;
     }
 }
+
+// Get current page for navbar highlighting
+$current_page = basename($_SERVER['PHP_SELF']);
+function is_active($page) {
+    global $current_page;
+    return $current_page === $page ? 'active' : '';
+}
 ?>
 
-<!-- Top Bar -->
-<div class="top-bar">
-    <div class="top-bar-left">
-        <span><i class="fas fa-phone"></i> +639813446215</span>
-        <span>|</span>
-        <span>Sign up and <strong>GET 25% OFF</strong> for your first order</span>
-    </div>
-    <div class="top-bar-right">
-        <a href="#"><i class="fab fa-twitter"></i></a>
-        <a href="#"><i class="fab fa-instagram"></i></a>
-        <a href="#"><i class="fab fa-pinterest"></i></a>
-    </div>
-</div>
+<style>
+<?php include '../css/notification-dropdown.css'; ?>
+</style>
 
 <!-- Main Header -->
 <header class="main-header">
@@ -47,18 +53,18 @@ if ($is_logged_in) {
         <?php if ($is_seller): ?>
         <!-- Seller Navigation -->
         <nav class="nav-menu">
-            <a href="seller_profile.php">My Shop</a>
-            <a href="seller_dashboard.php">Dashboard</a>
-            <a href="message.php">Messages</a>
+            <a href="seller_profile.php" class="<?php echo is_active('seller_profile.php'); ?>">My Shop</a>
+            <a href="seller_dashboard.php" class="<?php echo is_active('seller_dashboard.php'); ?>">Dashboard</a>
+            <a href="message.php" class="<?php echo is_active('message.php'); ?>">Messages</a>
         </nav>
         <?php else: ?>
         <!-- Regular User Navigation -->
         <nav class="nav-menu">
-            <a href="dashboard.php">Home</a>
-            <a href="shop.php">Shop</a>
-            <a href="orders.php">Orders</a>
-            <a href="wishlist.php">Wishlist</a>
-            <a href="message.php">Messages</a>
+            <a href="dashboard.php" class="<?php echo is_active('dashboard.php'); ?>">Home</a>
+            <a href="shop.php" class="<?php echo is_active('shop.php'); ?>">Shop</a>
+            <a href="orders.php" class="<?php echo is_active('orders.php'); ?>">Orders</a>
+            <a href="wishlist.php" class="<?php echo is_active('wishlist.php'); ?>">Wishlist</a>
+            <a href="message.php" class="<?php echo is_active('message.php'); ?>">Messages</a>
         </nav>
         <?php endif; ?>
         
@@ -68,9 +74,52 @@ if ($is_logged_in) {
                 <i class="fas fa-shopping-bag"></i>
             </a>
             <?php endif; ?>
-            <a href="<?php echo $is_seller ? 'seller_notification.php' : 'notification.php'; ?>" class="icon-btn">
-                <i class="fas fa-bell"></i>
-            </a>
+            <div class="notification-dropdown">
+                <a href="<?php echo $is_seller ? 'seller_notification.php' : 'notification.php'; ?>" class="icon-btn notification-bell">
+                    <i class="fas fa-bell"></i>
+                    <?php if ($notification_count > 0): ?>
+                        <span class="notification-count"><?php echo $notification_count; ?></span>
+                    <?php endif; ?>
+                </a>
+                <div class="notification-menu" id="notification-menu">
+                    <div class="notification-header">
+                        <h4>Notifications</h4>
+                        <?php if ($notification_count > 0): ?>
+                            <a href="<?php echo $is_seller ? 'seller_notification.php' : 'notification.php'; ?>" class="view-all">View All</a>
+                        <?php endif; ?>
+                    </div>
+                    <div class="notification-list-dropdown">
+                        <?php if (!empty($recent_notifications)): ?>
+                            <?php foreach ($recent_notifications as $notif): ?>
+                                <?php 
+                                $is_clickable = ($notif['type'] == 'message' && !empty($notif['redirect_url']));
+                                $click_target = $is_clickable ? $notif['redirect_url'] : 'notification.php';
+                                ?>
+                                <a href="<?php echo htmlspecialchars($click_target); ?>" class="notification-item-dropdown <?php echo !$notif['is_read'] ? 'unread' : ''; ?> <?php echo $is_clickable ? 'clickable' : ''; ?>">
+                                    <div class="notif-icon">
+                                        <i class="<?php echo getNotificationIcon($notif['type']); ?>" style="color: <?php echo getNotificationColor($notif['type']); ?>;"></i>
+                                    </div>
+                                    <div class="notif-content">
+                                        <h5>
+                                            <?php echo htmlspecialchars($notif['title']); ?>
+                                            <?php if ($is_clickable): ?>
+                                                <small style="color: #007bff;">↩ Reply</small>
+                                            <?php endif; ?>
+                                        </h5>
+                                        <p><?php echo htmlspecialchars(substr($notif['message'], 0, 80)) . '...'; ?></p>
+                                        <span class="notif-time"><?php echo formatNotificationTime($notif['created_at']); ?></span>
+                                    </div>
+                                </a>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <div class="no-notifications">
+                                <i class="fas fa-bell-slash"></i>
+                                <p>No notifications</p>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
             <div class="user-menu">
                 <button class="icon-btn"><i class="fas fa-user"></i></button>
                 <div class="user-dropdown">

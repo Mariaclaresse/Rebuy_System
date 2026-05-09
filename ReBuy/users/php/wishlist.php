@@ -42,7 +42,8 @@ $stmt->close();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Wishlist - ReBuy</title>
+    <title>ReBuy</title>
+    <link rel="icon" type="image/x-icon" href="../../assets/logo.png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link rel="stylesheet" href="../css/header-footer.css">
     <style>
@@ -294,6 +295,86 @@ $stmt->close();
             background: #1a3009;
         }
 
+        /* Add by Link Section */
+        .add-by-link-section {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .add-by-link-section h3 {
+            color: var(--primary-color);
+            margin: 0 0 15px 0;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .link-form {
+            margin: 0;
+        }
+
+        .link-input-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .link-input-group input[type="url"] {
+            flex: 1;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .link-input-group input[type="url"]:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(45, 80, 22, 0.1);
+        }
+
+        .add-link-btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+            white-space: nowrap;
+        }
+
+        .add-link-btn:hover {
+            background: #1a3009;
+        }
+
+        /* Alert Messages */
+        .alert {
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border-left: 4px solid #28a745;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+        }
+
         /* Wishlist Actions Section */
         .wishlist-actions {
             background: white;
@@ -348,7 +429,7 @@ $stmt->close();
 
         .wishlist-buttons {
             display: flex;
-            gap: 15px;
+            gap: 8px;
             align-items: center;
         }
 
@@ -424,7 +505,21 @@ $stmt->close();
                         <span class="wishlist-counter"><?php echo count($wishlist_items); ?> Items</span>
                     </h1>
                     <p>Your saved items for later purchase</p>
+                    
                 </div>
+
+                <!-- Success/Error Messages -->
+                <?php if (isset($_SESSION['success'])): ?>
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle"></i> <?php echo $_SESSION['success']; unset($_SESSION['success']); ?>
+                    </div>
+                <?php endif; ?>
+
+                <?php if (isset($_SESSION['error'])): ?>
+                    <div class="alert alert-error">
+                        <i class="fas fa-exclamation-circle"></i> <?php echo $_SESSION['error']; unset($_SESSION['error']); ?>
+                    </div>
+                <?php endif; ?>
 
                 <!-- Wishlist Items or Empty State -->
                 <?php if (empty($wishlist_items)): ?>
@@ -433,6 +528,19 @@ $stmt->close();
                         <h2>Your Wishlist is Empty</h2>
                         <p>Add your favorite items to your wishlist and revisit them whenever you're ready!</p>
                         <a href="shop.php">Continue Shopping</a>
+                    </div>
+                    
+                    <!-- Add Product by Link Section (shown even when wishlist is empty) -->
+                    <div class="add-by-link-section" style="margin-top: 20px;">
+                        <h3><i class="fas fa-link"></i> Add Product by Link</h3>
+                        <form method="POST" action="wishlist_add_by_link.php" class="link-form">
+                            <div class="link-input-group">
+                                <input type="url" name="product_link" placeholder="Enter product URL (e.g., https://example.com/product/123)" required>
+                                <button type="submit" class="add-link-btn">
+                                    <i class="fas fa-plus"></i> Add to Wishlist
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 <?php else: ?>
                     <div class="wishlist-table-wrapper">
@@ -452,12 +560,9 @@ $stmt->close();
                                 <?php foreach ($wishlist_items as $item): ?>
                                     <tr>
                                         <td>
-                                            <a href="wishlist_remove.php?id=<?php echo $item['id']; ?>" class="remove-btn" title="Remove from Wishlist">
-                                                <i class="fas fa-times"></i>
-                                            </a>
                                         </td>
                                         <td class="product-img-cell">
-                                            <img src="<?php echo htmlspecialchars($item['image_url'] ?? 'https://via.placeholder.com/80'); ?>" alt="<?php echo htmlspecialchars($item['name']); ?>">
+                                            <img src="<?php echo !empty($item['image_url']) ? '../' . htmlspecialchars($item['image_url']) : 'https://via.placeholder.com/80'; ?>" alt="<?php echo htmlspecialchars($item['name']); ?>">
                                         </td>
                                         <td>
                                             <div class="product-name-cell"><?php echo htmlspecialchars($item['name']); ?></div>
@@ -471,7 +576,12 @@ $stmt->close();
                                         <td>
                                             <form method="POST" action="cart_add.php">
                                                 <input type="hidden" name="product_id" value="<?php echo $item['id']; ?>">
-                                                <button type="submit" class="add-to-cart-btn">Add to Cart</button>
+                                                <button type="submit" class="add-to-cart-btn"><i class="fas fa-cart-plus"></i></button>
+                                                <button>
+                                                    <a href="wishlist_remove.php?id=<?php echo $item['id']; ?>" class="remove-btn" title="Remove from Wishlist">
+                                                        <i class="fas fa-trash"></i>
+                                                    </a>
+                                                </button>
                                             </form>
                                         </td>
                                     </tr>
@@ -481,35 +591,21 @@ $stmt->close();
                     </div>
 
                     <!-- Wishlist Actions -->
-                    <div class="wishlist-actions">
-                        <div class="wishlist-link-section">
-                            <label>Wishlist link:</label>
-                            <input type="text" class="wishlist-link-input" value="https://www.example.com" readonly>
-                            <button class="copy-link-btn" onclick="copyWishlistLink()">Copy Link</button>
+                        <!-- Add Product by Link Section -->
+                        <div class="add-by-link-section" style="margin-top: 20px;">
+                            <h3><i class="fas fa-link"></i> Add Product by Link</h3>
+                            <form method="POST" action="wishlist_add_by_link.php" class="link-form">
+                                <div class="link-input-group">
+                                <input class="wishlist-link-input" type="url" name="product_link" placeholder="Enter product URL (e.g., https://example.com/product/123)" required>
+                                <button type="submit" class="add-link-btn">
+                                    <i class="fas fa-plus"></i> Add to Wishlist
+                                </button>
+                                </div>
+                            </form>
                         </div>
-                        <div class="wishlist-buttons">
-                            <a href="wishlist_clear.php" class="clear-wishlist-link">Clear Wishlist</a>
-                            <button class="add-all-btn" onclick="addAllToCart()">Add All to Cart</button>
-                        </div>
-                    </div>
+
                 <?php endif; ?>
             </div>
-
-            <!-- Newsletter Section -->
-            <section class="newsletter-section">
-                <div class="newsletter-container">
-                    <div class="newsletter-content">
-                        <h3>Our Newsletter</h3>
-                        <h2>Subscribe to Our Newsletter to Get Updates on Our Latest Offers</h2>
-                        <p>Get 25% off on your first order just by subscribing to our newsletter</p>
-                    </div>
-                    <form class="newsletter-form" onsubmit="return false;">
-                        <input type="email" placeholder="Enter Email Address" required>
-                        <button type="submit" class="newsletter-btn">Subscribe</button>
-                    </form>
-                </div>
-            </section>
-        </div>
 
         <!-- Footer -->
     <footer>

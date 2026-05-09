@@ -73,7 +73,8 @@ while ($row = $categories_result->fetch_assoc()) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shop - ReBuy</title>
+    <title>ReBuy</title>
+    <link rel="icon" type="image/x-icon" href="../../assets/logo.png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link rel="stylesheet" href="../css/header-footer.css">
     <style>
@@ -351,19 +352,6 @@ while ($row = $categories_result->fetch_assoc()) {
     </style>
 </head>
 <body>
-    <!-- Top Bar -->
-        <div class="top-bar">
-                <div class="top-bar-left">
-                    <span><i class="fas fa-phone"></i> +639813446215</span>
-                    <span>|</span>
-                    <span>Sign up and <strong>GET 25% OFF</strong> for your first order</span>
-                </div>
-                <div class="top-bar-right">
-                    <a href="#"><i class="fab fa-twitter"></i></a>
-                    <a href="#"><i class="fab fa-instagram"></i></a>
-                    <a href="#"><i class="fab fa-pinterest"></i></a>
-                </div>
-        </div>
 
      <!-- Main Header -->
         <header class="main-header">

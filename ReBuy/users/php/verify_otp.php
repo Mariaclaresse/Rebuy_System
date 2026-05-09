@@ -46,7 +46,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Verify OTP - ReBuy</title>
+    <title>ReBuy</title>
+    <link rel="icon" type="image/x-icon" href="../../assets/logo.png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
         * {
@@ -256,6 +257,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <div class="otp-display">
         <i class="fas fa-envelope"></i>
         <p>OTP sent to: <strong><?php echo htmlspecialchars($_SESSION['reset_email']); ?></strong></p>
+        <?php if (isset($_SESSION['reset_otp'])): ?>
+        <div style="background: #2d5016; color: white; font-size: 20px; font-weight: bold; padding: 10px; border-radius: 5px; margin: 10px 0; letter-spacing: 3px;">
+            Your OTP: <?php echo htmlspecialchars($_SESSION['reset_otp']); ?>
+        </div>
+        <p style="font-size: 12px; color: #666; margin-top: 5px;">You can use this OTP to proceed</p>
+        <?php endif; ?>
     </div>
 
     <form method="POST">

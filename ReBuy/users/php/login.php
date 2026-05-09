@@ -110,7 +110,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Login - ReBuy</title>
+<title>ReBuy</title>
+<link rel="icon" type="image/x-icon" href="../../assets/logo.png">
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
@@ -474,6 +475,14 @@ body {
         </div>
     <?php endif; ?>
 
+        <?php if (isset($_SESSION['login_attempts']) && $_SESSION['login_attempts'] >= $max_attempts): ?>
+        <div class="countdown-timer" id="countdownTimer">
+            <i class="fas fa-clock"></i>
+            Account temporarily locked
+            <div class="timer-display" id="timerDisplay">30</div>
+        </div>
+        <?php endif; ?>
+
     <form method="POST">
 
         <!-- USERNAME -->
@@ -494,21 +503,6 @@ body {
         <div class="form-options">
             <a href="#" class="forgot-password" onclick="showForgotPasswordModal(event)">Forgot Password?</a>
         </div>
-
-        <?php if (isset($_SESSION['login_attempts']) && $_SESSION['login_attempts'] > 0): ?>
-        <div class="attempt-counter">
-            <i class="fas fa-exclamation-triangle"></i>
-            Login attempts: <?php echo $_SESSION['login_attempts']; ?>/<?php echo $max_attempts; ?>
-        </div>
-        <?php endif; ?>
-
-        <?php if (isset($_SESSION['login_attempts']) && $_SESSION['login_attempts'] >= $max_attempts): ?>
-        <div class="countdown-timer" id="countdownTimer">
-            <i class="fas fa-clock"></i>
-            Account temporarily locked
-            <div class="timer-display" id="timerDisplay">30</div>
-        </div>
-        <?php endif; ?>
 
         <button class="login-btn" <?php if (isset($_SESSION['login_attempts']) && $_SESSION['login_attempts'] >= $max_attempts) echo 'disabled'; ?>>Sign In</button>
     </form>

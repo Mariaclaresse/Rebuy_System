@@ -60,6 +60,9 @@ if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
     $check_stmt->close();
 }
 
+// Stock updates are now handled via AJAX in ajax_stock_update.php
+// No traditional form handling needed to prevent page reloads
+
 // Get seller's products
 $products_stmt = $conn->prepare("SELECT * FROM products WHERE seller_id = ? ORDER BY created_at DESC");
 $products_stmt->bind_param("i", $user_id);
@@ -73,7 +76,8 @@ $products_stmt->close();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manage Products - ReBuy</title>
+    <title>ReBuy</title>
+    <link rel="icon" type="image/x-icon" href="../../assets/logo.png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link rel="stylesheet" href="../css/header-footer.css">
     <style>
@@ -165,7 +169,7 @@ $products_stmt->close();
         .products-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 20px;
+            gap: 30px;
         }
 
         .product-card {
@@ -274,6 +278,139 @@ $products_stmt->close();
             margin-bottom: 20px;
         }
     </style>
+    <script>
+        function toggleStockForm(productId) {
+            const form = document.getElementById('stock-form-' + productId);
+            if (form.style.display === 'none') {
+                form.style.display = 'block';
+            } else {
+                form.style.display = 'none';
+            }
+        }
+
+        function updateStock(productId, event) {
+            const stockAddInput = document.getElementById('stock-add-' + productId);
+            const stockAdd = parseInt(stockAddInput.value);
+            
+            if (!stockAdd || stockAdd <= 0) {
+                alert('Please enter a valid stock quantity');
+                return;
+            }
+
+            // Prevent any form submission
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+
+            // Show loading state
+            const submitBtn = document.getElementById('submit-btn-' + productId);
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
+            submitBtn.disabled = true;
+
+            // Create AJAX request
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', 'ajax_stock_update.php', true);
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    submitBtn.innerHTML = originalText;
+                    submitBtn.disabled = false;
+                    
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        
+                        if (response.success) {
+                            // Update stock display
+                            updateStockDisplay(productId, response.new_stock);
+                            
+                            // Show success message
+                            showNotification('Stock updated successfully! Added ' + response.added_stock + ' units.', 'success');
+                            
+                            // Reset form and hide
+                            stockAddInput.value = '';
+                            toggleStockForm(productId);
+                        } else {
+                            showNotification(response.message || 'Failed to update stock', 'error');
+                        }
+                    } catch (e) {
+                        showNotification('An error occurred. Please try again.', 'error');
+                    }
+                }
+            };
+            
+            xhr.send('action=update_stock&product_id=' + productId + '&stock_add=' + stockAdd);
+        }
+
+        // Add event listeners to prevent form submission
+        document.addEventListener('DOMContentLoaded', function() {
+            // Prevent any form submissions that might cause reload
+            const stockForms = document.querySelectorAll('[id^="stock-form-"]');
+            stockForms.forEach(form => {
+                form.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    return false;
+                });
+            });
+        });
+
+        function updateStockDisplay(productId, newStock) {
+            // Update stock display in the product card
+            const stockElement = document.getElementById('stock-display-' + productId);
+            if (stockElement) {
+                stockElement.textContent = newStock;
+            }
+            
+            // Update stock meta information
+            const stockMeta = document.getElementById('stock-meta-' + productId);
+            if (stockMeta) {
+                stockMeta.textContent = 'Stock: ' + newStock;
+            }
+        }
+
+        function showNotification(message, type) {
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.className = 'alert alert-' + (type === 'success' ? 'success' : 'error');
+            notification.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 9999; min-width: 300px; animation: slideIn 0.3s ease;';
+            notification.innerHTML = '<i class="fas fa-' + (type === 'success' ? 'check-circle' : 'exclamation-circle') + '"></i> ' + message;
+            
+            // Add to page
+            document.body.appendChild(notification);
+            
+            // Remove after 3 seconds
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 300);
+            }, 3000);
+        }
+
+        // Add CSS animations
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+            .alert-error {
+                background: #f8d7da;
+                color: #721c24;
+                border-left: 4px solid #dc3545;
+                padding: 15px 20px;
+                border-radius: 8px;
+                margin-bottom: 20px;
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
 </head>
 <body>
     <?php include '_header.php'; ?>
@@ -292,6 +429,7 @@ $products_stmt->close();
             </div>
         <?php endif; ?>
 
+        
         <?php if ($products->num_rows > 0): ?>
             <div class="products-grid">
                 <?php while ($product = $products->fetch_assoc()): ?>
@@ -305,7 +443,7 @@ $products_stmt->close();
                             <h3 class="product-name"><?php echo htmlspecialchars($product['name']); ?></h3>
                             <div class="product-price">₱<?php echo number_format($product['price'], 2); ?></div>
                             <div class="product-meta">
-                                <span><i class="fas fa-box"></i> Stock: <?php echo $product['stock_quantity']; ?></span>
+                                <span id="stock-meta-<?php echo $product['id']; ?>"><i class="fas fa-box"></i> Stock: <?php echo $product['stock_quantity']; ?></span>
                                 <span><i class="fas fa-tag"></i> <?php echo htmlspecialchars($product['category']); ?></span>
                             </div>
                             <span class="product-status status-<?php echo $product['status']; ?>">
@@ -313,11 +451,28 @@ $products_stmt->close();
                             </span>
                             <div class="product-actions">
                                 <a href="edit_product.php?id=<?php echo $product['id']; ?>" class="btn btn-edit">
-                                    <i class="fas fa-edit"></i> Edit
+                                    <i class="fas fa-edit"></i>
                                 </a>
                                 <a href="manage_products.php?delete=<?php echo $product['id']; ?>" class="btn btn-danger" onclick="return confirm('Are you sure you want to delete this product?');">
-                                    <i class="fas fa-trash"></i> Delete
+                                    <i class="fas fa-trash"></i>
                                 </a>
+                            </div>
+                            
+                            <!-- Stock Management Form (Hidden by default) -->
+                            <div id="stock-form-<?php echo $product['id']; ?>" style="display: none; margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                                <h4 style="margin: 0 0 10px 0; color: #333; font-size: 14px;">Add Stock</h4>
+                                <div style="display: flex; gap: 10px; align-items: center;">
+                                    <input type="number" id="stock-add-<?php echo $product['id']; ?>" min="1" max="9999" placeholder="Enter quantity" required
+                                           style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;"
+                                           onkeypress="if(event.key === 'Enter') { updateStock(<?php echo $product['id']; ?>, event); return false; }">
+                                    <button type="button" id="submit-btn-<?php echo $product['id']; ?>" class="btn btn-primary" onclick="updateStock(<?php echo $product['id']; ?>, event); return false;" style="padding: 8px 16px; font-size: 14px;">
+                                        <i class="fas fa-check"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-danger" onclick="toggleStockForm(<?php echo $product['id']; ?>)" 
+                                            style="padding: 8px 16px; font-size: 14px;">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>

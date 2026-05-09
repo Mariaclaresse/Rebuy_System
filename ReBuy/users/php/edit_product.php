@@ -27,11 +27,32 @@ if ($seller_check->num_rows > 0) {
     exit();
 }
 
-// Handle product upload
+// Get product ID from URL
+$product_id = $_GET['id'] ?? '';
+if (empty($product_id) || !is_numeric($product_id)) {
+    header("Location: manage_products.php");
+    exit();
+}
+
+// Get product details
+$product_stmt = $conn->prepare("SELECT * FROM products WHERE id = ? AND seller_id = ?");
+$product_stmt->bind_param("ii", $product_id, $user_id);
+$product_stmt->execute();
+$product_result = $product_stmt->get_result();
+
+if ($product_result->num_rows === 0) {
+    header("Location: manage_products.php");
+    exit();
+}
+
+$product = $product_result->fetch_assoc();
+$product_stmt->close();
+
+// Handle product update
 $success_msg = '';
 $error_msg = '';
 
-if (isset($_POST['action']) && $_POST['action'] == 'upload_product') {
+if (isset($_POST['action']) && $_POST['action'] == 'edit_product') {
     $name = $_POST['name'] ?? '';
     $description = $_POST['description'] ?? '';
     $price = $_POST['price'] ?? '';
@@ -40,7 +61,7 @@ if (isset($_POST['action']) && $_POST['action'] == 'upload_product') {
     $stock_quantity = $_POST['stock_quantity'] ?? 0;
     
     // Handle image upload
-    $image_url = '';
+    $image_url = $product['image_url']; // Keep existing image by default
     if (isset($_FILES['product_image']) && $_FILES['product_image']['error'] == 0) {
         $upload_dir = '../uploads/products/';
         if (!file_exists($upload_dir)) {
@@ -51,6 +72,13 @@ if (isset($_POST['action']) && $_POST['action'] == 'upload_product') {
         $target_file = $upload_dir . $file_name;
         
         if (move_uploaded_file($_FILES['product_image']['tmp_name'], $target_file)) {
+            // Delete old image if exists
+            if (!empty($product['image_url'])) {
+                $old_image_path = '../' . $product['image_url'];
+                if (file_exists($old_image_path)) {
+                    unlink($old_image_path);
+                }
+            }
             $image_url = 'uploads/products/' . $file_name;
         } else {
             $error_msg = "Failed to upload image.";
@@ -58,15 +86,22 @@ if (isset($_POST['action']) && $_POST['action'] == 'upload_product') {
     }
     
     if (empty($error_msg)) {
-        $stmt = $conn->prepare("INSERT INTO products (seller_id, name, description, price, original_price, category, image_url, stock_quantity) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt = $conn->prepare("UPDATE products SET name = ?, description = ?, price = ?, original_price = ?, category = ?, image_url = ?, stock_quantity = ? WHERE id = ? AND seller_id = ?");
         if ($stmt === false) {
             $error_msg = "Prepare failed: " . $conn->error;
         } else {
-            $stmt->bind_param("isssdssi", $user_id, $name, $description, $price, $original_price, $category, $image_url, $stock_quantity);
+            $stmt->bind_param("sssdsssii", $name, $description, $price, $original_price, $category, $image_url, $stock_quantity, $product_id, $user_id);
             if ($stmt->execute()) {
-                $success_msg = "Product uploaded successfully!";
+                $success_msg = "Product updated successfully!";
+                // Refresh product data
+                $product_stmt = $conn->prepare("SELECT * FROM products WHERE id = ? AND seller_id = ?");
+                $product_stmt->bind_param("ii", $product_id, $user_id);
+                $product_stmt->execute();
+                $product_result = $product_stmt->get_result();
+                $product = $product_result->fetch_assoc();
+                $product_stmt->close();
             } else {
-                $error_msg = "Failed to upload product: " . $stmt->error;
+                $error_msg = "Failed to update product: " . $stmt->error;
             }
             $stmt->close();
         }
@@ -203,7 +238,12 @@ if (isset($_POST['action']) && $_POST['action'] == 'upload_product') {
             max-width: 200px;
             max-height: 200px;
             border-radius: 6px;
-            display: none;
+        }
+
+        .current-image {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #666;
         }
 
         .form-actions {
@@ -297,20 +337,6 @@ if (isset($_POST['action']) && $_POST['action'] == 'upload_product') {
     </style>
 </head>
 <body>
-    <!-- Top Bar -->
-    <div class="top-bar">
-        <div class="top-bar-left">
-            <span><i class="fas fa-phone"></i> +639813446215</span>
-            <span>|</span>
-            <span>Sign up and <strong>GET 25% OFF</strong> for your first order</span>
-        </div>
-        <div class="top-bar-right">
-            <a href="#"><i class="fab fa-facebook"></i></a>
-            <a href="#"><i class="fab fa-twitter"></i></a>
-            <a href="#"><i class="fab fa-instagram"></i></a>
-            <a href="#"><i class="fab fa-youtube"></i></a>
-        </div>
-    </div>
 
     <!-- Main Header -->
     <header class="main-header">
@@ -320,11 +346,9 @@ if (isset($_POST['action']) && $_POST['action'] == 'upload_product') {
                 <span>ReBuy</span>
             </a>
             <nav class="nav-menu">
-                <a href="dashboard.php">Home</a>
-                <a href="shop.php">Shop</a>
-                <a href="seller_dashboard.php">Seller Dashboard</a>
-                <a href="orders.php">Orders</a>
-                <a href="wishlist.php">Wishlist</a>
+                <a href="seller_profile.php">My Shop</a>
+                <a href="seller_dashboard.php">Dashboard</a>
+                <a href="message.php">Messages</a>
             </nav>
             <div class="header-icons">
                 <a href="shop.php"><i class="fas fa-search"></i></a>
@@ -351,8 +375,8 @@ if (isset($_POST['action']) && $_POST['action'] == 'upload_product') {
     <div class="upload-container">
         <!-- Upload Header -->
         <div class="upload-header">
-            <h1><i class="fas fa-plus"></i> Upload New Product</h1>
-            <p>Add your product to the marketplace and start selling</p>
+            <h1><i class="fas fa-edit"></i> Edit Product</h1>
+            <p>Update your product information</p>
         </div>
 
         <!-- Upload Form -->
@@ -370,24 +394,24 @@ if (isset($_POST['action']) && $_POST['action'] == 'upload_product') {
             <?php endif; ?>
 
             <form method="POST" enctype="multipart/form-data">
-                <input type="hidden" name="action" value="upload_product">
+                <input type="hidden" name="action" value="edit_product">
                 
                 <div class="form-row">
                     <div class="form-group">
                         <label>Product Name <span class="required">*</span></label>
-                        <input type="text" name="name" required placeholder="Enter product name">
+                        <input type="text" name="name" required placeholder="Enter product name" value="<?php echo htmlspecialchars($product['name']); ?>">
                     </div>
                     <div class="form-group">
                         <label>Category <span class="required">*</span></label>
                         <select name="category" required>
                             <option value="">Select category</option>
-                            <option value="Electronics">Electronics</option>
-                            <option value="Clothing">Clothing</option>
-                            <option value="Books">Books</option>
-                            <option value="Home & Garden">Home & Garden</option>
-                            <option value="Sports">Sports</option>
-                            <option value="Toys">Toys</option>
-                            <option value="Other">Other</option>
+                            <option value="Electronics" <?php echo $product['category'] == 'Electronics' ? 'selected' : ''; ?>>Electronics</option>
+                            <option value="Clothing" <?php echo $product['category'] == 'Clothing' ? 'selected' : ''; ?>>Clothing</option>
+                            <option value="Books" <?php echo $product['category'] == 'Books' ? 'selected' : ''; ?>>Books</option>
+                            <option value="Home & Garden" <?php echo $product['category'] == 'Home & Garden' ? 'selected' : ''; ?>>Home & Garden</option>
+                            <option value="Sports" <?php echo $product['category'] == 'Sports' ? 'selected' : ''; ?>>Sports</option>
+                            <option value="Toys" <?php echo $product['category'] == 'Toys' ? 'selected' : ''; ?>>Toys</option>
+                            <option value="Other" <?php echo $product['category'] == 'Other' ? 'selected' : ''; ?>>Other</option>
                         </select>
                     </div>
                 </div>
@@ -395,43 +419,49 @@ if (isset($_POST['action']) && $_POST['action'] == 'upload_product') {
                 <div class="form-row">
                     <div class="form-group">
                         <label>Selling Price <span class="required">*</span></label>
-                        <input type="number" name="price" step="0.01" min="0" required placeholder="₱0.00">
+                        <input type="number" name="price" step="0.01" min="0" required placeholder="₱0.00" value="<?php echo htmlspecialchars($product['price']); ?>">
                     </div>
                     <div class="form-group">
                         <label>Original Price</label>
-                        <input type="number" name="original_price" step="0.01" min="0" placeholder="₱0.00">
+                        <input type="number" name="original_price" step="0.01" min="0" placeholder="₱0.00" value="<?php echo htmlspecialchars($product['original_price']); ?>">
                     </div>
                 </div>
 
                 <div class="form-row">
                     <div class="form-group">
                         <label>Stock Quantity <span class="required">*</span></label>
-                        <input type="number" name="stock_quantity" min="0" required placeholder="0">
+                        <input type="number" name="stock_quantity" min="0" required placeholder="0" value="<?php echo htmlspecialchars($product['stock_quantity']); ?>">
                     </div>
                     <div class="form-group">
                         <label>Product Image</label>
                         <div class="image-upload" onclick="document.getElementById('product_image').click()">
                             <i class="fas fa-cloud-upload-alt"></i>
-                            <p>Click to upload image</p>
+                            <p>Click to change image</p>
                             <input type="file" id="product_image" name="product_image" accept="image/*" style="display: none;" onchange="previewImage(event)">
                         </div>
-                        <img id="image_preview" class="image-preview" alt="Preview">
+                        <?php if (!empty($product['image_url'])): ?>
+                            <div class="current-image">
+                                <p>Current image:</p>
+                                <img src="<?php echo '../' . htmlspecialchars($product['image_url']); ?>" class="image-preview" alt="Current product image">
+                            </div>
+                        <?php endif; ?>
+                        <img id="image_preview" class="image-preview" alt="New preview" style="display: none;">
                     </div>
                 </div>
 
                 <div class="form-row full">
                     <div class="form-group">
                         <label>Description</label>
-                        <textarea name="description" placeholder="Describe your product (features, condition, etc.)"></textarea>
+                        <textarea name="description" placeholder="Describe your product (features, condition, etc.)"><?php echo htmlspecialchars($product['description']); ?></textarea>
                     </div>
                 </div>
 
                 <div class="form-actions">
                     <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-upload"></i> Upload Product
+                        <i class="fas fa-save"></i> Update Product
                     </button>
-                    <a href="seller_dashboard.php" class="btn btn-secondary">
-                        <i class="fas fa-arrow-left"></i> Back to Dashboard
+                    <a href="manage_products.php" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Back to Products
                     </a>
                 </div>
             </form>

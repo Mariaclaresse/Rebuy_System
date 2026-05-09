@@ -134,7 +134,8 @@ $stmt->close();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Orders - ReBuy</title>
+    <title>ReBuy</title>
+    <link rel="icon" type="image/x-icon" href="../../assets/logo.png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link rel="stylesheet" href="../css/header-footer.css">
     <link rel="stylesheet" href="../css/cart.css">
@@ -242,21 +243,6 @@ $stmt->close();
                 </div>
             <?php endif; ?>
         </div>
-
-        <!-- Newsletter Section -->
-        <section class="newsletter-section">
-            <div class="newsletter-container">
-                <div class="newsletter-content">
-                    <h3>Our Newsletter</h3>
-                    <h2>Subscribe to Our Newsletter to Get Updates on Our Latest Offers</h2>
-                    <p>Get 25% off on your first order just by subscribing to our newsletter</p>
-                </div>
-                <form class="newsletter-form" onsubmit="return false;">
-                    <input type="email" placeholder="Enter Email Address" required>
-                    <button type="submit" class="newsletter-btn">Subscribe</button>
-                </form>
-            </div>
-        </section>
 
         <!-- Footer -->
     <footer>
